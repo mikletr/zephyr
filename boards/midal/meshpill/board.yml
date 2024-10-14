@@ -1,0 +1,8 @@
+board:
+  name: meshpill
+  full_name: MESHPILL (Sense)
+  vendor: midal
+  socs:
+  - name: nrf52840
+    variants:
+    - name: 'sense'
