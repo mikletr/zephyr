@@ -758,6 +758,11 @@ BDMA_STM32_EXPORT_API int bdma_stm32_stop(const struct device *dev, uint32_t id)
 		return -EINVAL;
 	}
 
+	if (channel->hal_override) {
+		channel->busy = false;
+		return 0;
+	}
+
 	/* Repeated stop : return now if channel is already stopped */
 	if (!stm32_bdma_is_enabled_channel(bdma, id)) {
 		return 0;
@@ -901,7 +906,7 @@ static void bdma_stm32_irq_##bdma##_##chan(const struct device *dev)	\
 	} while (false)
 
 
-#if DT_NODE_HAS_STATUS(DT_DRV_INST(0), okay)
+#if DT_NODE_HAS_STATUS_OKAY(DT_DRV_INST(0))
 
 #define BDMA_STM32_DEFINE_IRQ_HANDLER_GEN(i, _) \
 	BDMA_STM32_DEFINE_IRQ_HANDLER(0, i)
@@ -918,4 +923,4 @@ static void bdma_stm32_config_irq_0(const struct device *dev)
 
 BDMA_STM32_INIT_DEV(0);
 
-#endif /* DT_NODE_HAS_STATUS(DT_DRV_INST(0), okay) */
+#endif /* DT_NODE_HAS_STATUS_OKAY(DT_DRV_INST(0)) */

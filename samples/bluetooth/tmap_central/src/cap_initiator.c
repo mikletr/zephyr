@@ -43,7 +43,7 @@ static K_SEM_DEFINE(sem_discover_source, 0, 1);
 static K_SEM_DEFINE(sem_audio_start, 0, 1);
 
 static void unicast_stream_configured(struct bt_bap_stream *stream,
-				      const struct bt_audio_codec_qos_pref *pref)
+				      const struct bt_bap_qos_cfg_pref *pref)
 {
 	printk("Configured stream %p\n", stream);
 
@@ -393,17 +393,22 @@ static void audio_timer_timeout(struct k_work *work)
 		data_initialized = true;
 	}
 
-	buf = net_buf_alloc(&tx_pool, K_FOREVER);
-	net_buf_reserve(buf, BT_ISO_CHAN_SEND_RESERVE);
-	net_buf_add_mem(buf, buf_data, len_to_send);
-	buf_to_send = buf;
+	buf = net_buf_alloc(&tx_pool, K_NO_WAIT);
+	if (buf != NULL) {
+		net_buf_reserve(buf, BT_ISO_CHAN_SEND_RESERVE);
+		net_buf_add_mem(buf, buf_data, len_to_send);
+		buf_to_send = buf;
 
-	ret = bt_bap_stream_send(stream, buf_to_send, 0);
-	if (ret < 0) {
-		printk("Failed to send audio data on streams: (%d)\n", ret);
-		net_buf_unref(buf_to_send);
+		ret = bt_bap_stream_send(stream, buf_to_send, 0);
+		if (ret < 0) {
+			printk("Failed to send audio data on streams: (%d)\n", ret);
+			net_buf_unref(buf_to_send);
+		} else {
+			printk("Sending mock data with len %zu\n", len_to_send);
+		}
 	} else {
-		printk("Sending mock data with len %zu\n", len_to_send);
+		printk("Failed to allocate TX buffer\n");
+		/* Retry later */
 	}
 
 	k_work_schedule(&audio_send_work, K_MSEC(1000));

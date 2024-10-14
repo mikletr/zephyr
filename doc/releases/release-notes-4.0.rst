@@ -9,6 +9,10 @@ We are pleased to announce the release of Zephyr version 4.0.0.
 
 Major enhancements with this release include:
 
+* The introduction of the :ref:`secure storage<secure_storage>` subsystem. It allows the use of the
+  PSA Secure Storage API and of persistent keys in the PSA Crypto API on all board targets. It
+  is now the standard way to provide device-specific protection to data at rest. (:github:`76222`)
+
 An overview of the changes required or recommended when migrating your application from Zephyr
 v3.7.0 to Zephyr v4.0.0 can be found in the separate :ref:`migration guide<migration_4.0>`.
 
@@ -103,6 +107,11 @@ Bluetooth
 
   * Added API :c:func:`bt_gatt_get_uatt_mtu` to get current Unenhanced ATT MTU of a given
     connection (experimental).
+  * Added :kconfig:option:`CONFIG_BT_CONN_TX_NOTIFY_WQ`.
+    The option allows using a separate workqueue for connection TX notify processing
+    (:c:func:`bt_conn_tx_notify`) to make Bluetooth stack more independent from the system workqueue.
+
+  * The host now disconnects from the peer upon ATT timeout.
 
 * HCI Drivers
 
@@ -144,6 +153,9 @@ Build system and Infrastructure
    * ``--vendor-prefixes``
    * ``--edtlib-Werror``
 
+* Switched to using imgtool directly from the build system when signing images instead of calling
+  ``west sign``.
+
 Documentation
 *************
 
@@ -163,6 +175,14 @@ Drivers and Sensors
 * Charger
 
 * Clock control
+
+* Comparator
+
+  * Introduced comparator device driver subsystem selected with :kconfig:option:`CONFIG_COMPARATOR`
+  * Introduced comparator shell commands selected with :kconfig:option:`CONFIG_COMPARATOR_SHELL`
+  * Added support for Nordic nRF COMP (:dtcompatible:`nordic,nrf-comp`)
+  * Added support for Nordic nRF LPCOMP (:dtcompatible:`nordic,nrf-lpcomp`)
+  * Added support for NXP Kinetis ACMP (:dtcompatible:`nxp,kinetis-acmp`)
 
 * Counter
 
@@ -226,6 +246,8 @@ Drivers and Sensors
 * Pin control
 
 * PWM
+
+  * rpi_pico: The driver now configures the divide ratio adaptively.
 
 * Regulators
 
@@ -348,6 +370,27 @@ Libraries / Subsystems
     * Added support for img mgmt slot info command, which allows for listing information on
       images and slots on the device.
 
+  * hawkBit
+
+    * :c:func:`hawkbit_autohandler` now takes one argument. If the argument is set to true, the
+      autohandler will reshedule itself after running. If the argument is set to false, the
+      autohandler will not reshedule itself. Both variants are sheduled independent of each other.
+      The autohandler always runs in the system workqueue.
+
+    * Use the :c:func:`hawkbit_autohandler_wait` function to wait for the autohandler to finish.
+
+    * Running hawkBit from the shell is now executed in the system workqueue.
+
+    * Use the :c:func:`hawkbit_autohandler_cancel` function to cancel the autohandler.
+
+    * Use the :c:func:`hawkbit_autohandler_set_delay` function to delay the next run of the
+      autohandler.
+
+    * The hawkBit header file was separated into multiple header files. The main header file is now
+      ``<zephyr/mgmt/hawkbit/hawkbit.h>``, the autohandler header file is now
+      ``<zephyr/mgmt/hawkbit/autohandler.h>`` and the configuration header file is now
+      ``<zephyr/mgmt/hawkbit/config.h>``.
+
 * Logging
 
 * Modem modules
@@ -408,6 +451,15 @@ Libraries / Subsystems
 * LoRa/LoRaWAN
 
 * ZBus
+
+* JWT (JSON Web Token)
+
+  * The following new Kconfigs were added to specify which library to use for the
+    signature:
+
+    * :kconfig:option:`CONFIG_JWT_USE_PSA` (default) use the PSA Crypto API;
+    * :kconfig:option:`CONFIG_JWT_USE_LEGACY` use legacy libraries, i.e. TinyCrypt
+      for ECDSA and Mbed TLS for RSA.
 
 HALs
 ****

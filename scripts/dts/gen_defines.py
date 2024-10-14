@@ -74,6 +74,12 @@ def main():
             out_comment("Node's name with unit-address:")
             out_dt_define(f"{node.z_path_id}_FULL_NAME",
                           f'"{escape(node.name)}"')
+            out_dt_define(f"{node.z_path_id}_FULL_NAME_UNQUOTED",
+                          f'{escape(node.name)}')
+            out_dt_define(f"{node.z_path_id}_FULL_NAME_TOKEN",
+                          f'{edtlib.str_as_token(escape(node.name))}')
+            out_dt_define(f"{node.z_path_id}_FULL_NAME_UPPER_TOKEN",
+                          f'{edtlib.str_as_token(escape(node.name)).upper()}')
 
             if node.parent is not None:
                 out_comment(f"Node parent ({node.parent.path}) identifier:")
@@ -583,7 +589,7 @@ def write_vanilla_props(node: edtlib.Node) -> None:
 
         if prop.spec.type == 'string':
             # DT_N_<node-id>_P_<prop-id>_IDX_<i>_STRING_UNQUOTED
-            macro2val[macro + "_STRING_UNQUOTED"] = prop.val
+            macro2val[macro + "_STRING_UNQUOTED"] = escape_unquoted(prop.val)
             # DT_N_<node-id>_P_<prop-id>_IDX_<i>_STRING_TOKEN
             macro2val[macro + "_STRING_TOKEN"] = prop.val_as_token
             # DT_N_<node-id>_P_<prop-id>_IDX_<i>_STRING_UPPER_TOKEN
@@ -626,7 +632,7 @@ def write_vanilla_props(node: edtlib.Node) -> None:
                     macro2val[macro + f"_IDX_{i}"] = quote_str(subval)
                     subval_as_token = edtlib.str_as_token(subval)
                     # DT_N_<node-id>_P_<prop-id>_IDX_<i>_STRING_UNQUOTED
-                    macro2val[macro + f"_IDX_{i}_STRING_UNQUOTED"] = subval
+                    macro2val[macro + f"_IDX_{i}_STRING_UNQUOTED"] = escape_unquoted(subval)
                     # DT_N_<node-id>_P_<prop-id>_IDX_<i>_STRING_TOKEN
                     macro2val[macro + f"_IDX_{i}_STRING_TOKEN"] = subval_as_token
                     # DT_N_<node-id>_P_<prop-id>_IDX_<i>_STRING_UPPER_TOKEN
@@ -1020,11 +1026,20 @@ def out_comment(s: str, blank_before=True) -> None:
         print("/* " + s + " */", file=header_file)
 
 
-def escape(s: str) -> str:
-    # Backslash-escapes any double quotes and backslashes in 's'
+ESCAPE_TABLE = str.maketrans(
+    {
+        "\n": "\\n",
+        "\r": "\\r",
+        "\\": "\\\\",
+        '"': '\\"',
+    }
+)
 
-    # \ must be escaped before " to avoid double escaping
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+def escape(s: str) -> str:
+    # Backslash-escapes any double quotes, backslashes, and new lines in 's'
+
+    return s.translate(ESCAPE_TABLE)
 
 
 def quote_str(s: str) -> str:
@@ -1032,6 +1047,15 @@ def quote_str(s: str) -> str:
     # backslashes within it
 
     return f'"{escape(s)}"'
+
+
+def escape_unquoted(s: str) -> str:
+    # C macros cannot contain line breaks, so replace them with spaces.
+    # Whitespace is used to separate preprocessor tokens, but it does not matter
+    # which whitespace characters are used, so a line break and a space are
+    # equivalent with regards to unquoted strings being used as C code.
+
+    return s.replace("\r", " ").replace("\n", " ")
 
 
 def err(s: str) -> NoReturn:

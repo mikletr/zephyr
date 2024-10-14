@@ -243,6 +243,7 @@
 				interrupts = <198 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
 				status = "disabled";
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi20: spi@c6000 {
@@ -282,6 +283,7 @@
 				interrupts = <199 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
 				status = "disabled";
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi21: spi@c7000 {
@@ -321,6 +323,7 @@
 				interrupts = <200 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
 				status = "disabled";
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi22: spi@c8000 {
@@ -531,6 +534,7 @@
 				interrupts = <260 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
 				status = "disabled";
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi30: spi@104000 {
@@ -559,6 +563,17 @@
 				status = "disabled";
 				endtx-stoptx-supported;
 				frame-timeout-supported;
+			};
+
+			comp: comparator@106000 {
+				/*
+				 * Use compatible "nordic,nrf-comp" to configure as COMP
+				 * Use compatible "nordic,nrf-lpcomp" to configure as LPCOMP
+				 */
+				compatible = "nordic,nrf-comp";
+				reg = <0x106000 0x1000>;
+				status = "disabled";
+				interrupts = <262 NRF_DEFAULT_IRQ_PRIORITY>;
 			};
 
 #ifdef USE_NON_SECURE_ADDRESS_MAP

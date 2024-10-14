@@ -215,6 +215,15 @@ int supplicant_btm_query(const struct device *dev, uint8_t reason);
 int supplicant_get_wifi_conn_params(const struct device *dev,
 			 struct wifi_connect_req_params *params);
 
+/** Start a WPS PBC/PIN connection
+ *
+ * @param dev Pointer to the device structure for the driver instance
+ * @param params wps operarion parameters
+ *
+ * @return 0 if ok, < 0 if error
+ */
+int supplicant_wps_config(const struct device *dev, struct wifi_wps_config_params *params);
+
 #ifdef CONFIG_AP
 #ifdef CONFIG_WIFI_NM_HOSTAPD_AP
 /**
@@ -269,6 +278,7 @@ int supplicant_ap_sta_disconnect(const struct device *dev,
 
 #endif /* CONFIG_AP */
 
+#ifdef CONFIG_WIFI_NM_WPA_SUPPLICANT_DPP
 /**
  * @brief Dispatch DPP operations for STA
  *
@@ -277,6 +287,7 @@ int supplicant_ap_sta_disconnect(const struct device *dev,
  * @return 0 for OK; -1 for ERROR
  */
 int supplicant_dpp_dispatch(const struct device *dev, struct wifi_dpp_params *params);
+#endif /* CONFIG_WIFI_NM_WPA_SUPPLICANT_DPP */
 
 #ifdef CONFIG_WIFI_NM_HOSTAPD_AP
 /**

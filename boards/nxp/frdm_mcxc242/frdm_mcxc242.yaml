@@ -18,6 +18,8 @@ supported:
   - gpio
   - i2c
   - pwm
+  - adc
+  - counter
 testing:
   ignore_tags:
     - net

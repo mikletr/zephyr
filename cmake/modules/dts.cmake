@@ -66,6 +66,12 @@ find_package(Dtc 1.4.6)
 #
 # Required variables:
 # - BINARY_DIR_INCLUDE_GENERATED: where to put generated include files
+# - DTS_ROOT: a deduplicated list of places where devicetree
+#   implementation files (like bindings, vendor prefixes, etc.) are
+#   found
+# - DTS_ROOT_SYSTEM_INCLUDE_DIRS: set to "PATH1 PATH2 ...",
+#   with one path per potential location where C preprocessor #includes
+#   may be found for devicetree files
 # - KCONFIG_BINARY_DIR: where to put generated Kconfig files
 #
 # Optional variables:
@@ -73,6 +79,8 @@ find_package(Dtc 1.4.6)
 # - BOARD_DIR: board directory to use when looking for DTS_SOURCE
 # - BOARD_REVISION_STRING: used when looking for a board revision's
 #   devicetree overlay file in BOARD_DIR
+# - CMAKE_DTS_PREPROCESSOR: the path to the preprocessor to use
+#   for devicetree files
 # - DTC_OVERLAY_FILE: list of devicetree overlay files which will be
 #   used to modify or extend the base devicetree.
 # - EXTRA_DTC_OVERLAY_FILE: list of extra devicetree overlay files.
@@ -180,6 +188,7 @@ set(dts_files
 if(DTC_OVERLAY_FILE)
   zephyr_list(TRANSFORM DTC_OVERLAY_FILE NORMALIZE_PATHS
               OUTPUT_VARIABLE DTC_OVERLAY_FILE_AS_LIST)
+  build_info(devicetree user-files PATH ${DTC_OVERLAY_FILE_AS_LIST})
   list(APPEND
     dts_files
     ${DTC_OVERLAY_FILE_AS_LIST}
@@ -189,6 +198,7 @@ endif()
 if(EXTRA_DTC_OVERLAY_FILE)
   zephyr_list(TRANSFORM EXTRA_DTC_OVERLAY_FILE NORMALIZE_PATHS
               OUTPUT_VARIABLE EXTRA_DTC_OVERLAY_FILE_AS_LIST)
+  build_info(devicetree extra-user-files PATH ${EXTRA_DTC_OVERLAY_FILE_AS_LIST})
   list(APPEND
     dts_files
     ${EXTRA_DTC_OVERLAY_FILE_AS_LIST}
@@ -405,3 +415,7 @@ elseif(stderr)
   message(WARNING "dtc raised one or more warnings:\n${stderr}")
 endif()
 endif(DTC)
+
+build_info(devicetree files PATH ${dts_files})
+build_info(devicetree include-dirs PATH ${DTS_ROOT_SYSTEM_INCLUDE_DIRS})
+build_info(devicetree bindings-dirs PATH ${DTS_ROOT_BINDINGS})

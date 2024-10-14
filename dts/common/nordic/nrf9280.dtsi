@@ -736,11 +736,14 @@
 			};
 
 			comp: comparator@983000 {
+				/*
+				 * Use compatible "nordic,nrf-comp" to configure as COMP
+				 * Use compatible "nordic,nrf-lpcomp" to configure as LPCOMP
+				 */
 				compatible = "nordic,nrf-comp";
 				reg = <0x983000 0x1000>;
 				status = "disabled";
 				interrupts = <387 NRF_DEFAULT_IRQ_PRIORITY>;
-				#io-channel-cells = <1>;
 			};
 
 			temp: temperature-sensor@984000 {
@@ -821,6 +824,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi130: spi@9a5000 {
@@ -860,6 +864,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi131: spi@9a6000 {
@@ -933,6 +938,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi132: spi@9b5000 {
@@ -972,6 +978,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi133: spi@9b6000 {
@@ -1045,6 +1052,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi134: spi@9c5000 {
@@ -1084,6 +1092,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi135: spi@9c6000 {
@@ -1157,6 +1166,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi136: spi@9d5000 {
@@ -1196,6 +1206,7 @@
 				#size-cells = <0>;
 				nordic,clockpin-enable = <NRF_FUN_TWIM_SDA>,
 							 <NRF_FUN_TWIM_SCL>;
+				zephyr,pm-device-runtime-auto;
 			};
 
 			spi137: spi@9d6000 {

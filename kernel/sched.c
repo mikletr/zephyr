@@ -35,7 +35,7 @@ struct k_spinlock _sched_spinlock;
  */
 __incoherent struct k_thread _thread_dummy;
 
-static void update_cache(int preempt_ok);
+static ALWAYS_INLINE void update_cache(int preempt_ok);
 static void halt_thread(struct k_thread *thread, uint8_t new_state);
 static void add_to_waitq_locked(struct k_thread *thread, _wait_q_t *wait_q);
 
@@ -320,7 +320,7 @@ static void update_metairq_preempt(struct k_thread *thread)
  */
 }
 
-static void update_cache(int preempt_ok)
+static ALWAYS_INLINE void update_cache(int preempt_ok)
 {
 #ifndef CONFIG_SMP
 	struct k_thread *thread = next_up();
@@ -1598,4 +1598,14 @@ int z_sched_waitq_walk(_wait_q_t  *wait_q,
 	}
 
 	return status;
+}
+
+/* This routine exists for benchmarking purposes. It is not used in
+ * general production code.
+ */
+void z_unready_thread(struct k_thread *thread)
+{
+	K_SPINLOCK(&_sched_spinlock) {
+		unready_thread(thread);
+	}
 }

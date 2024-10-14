@@ -2003,7 +2003,7 @@ static int cmd_advertise(const struct shell *sh, size_t argc, char *argv[])
 	param.interval_max = BT_GAP_ADV_FAST_INT_MAX_2;
 
 	if (!strcmp(argv[1], "on")) {
-		param.options = BT_LE_ADV_OPT_CONNECTABLE;
+		param.options = BT_LE_ADV_OPT_CONN;
 	} else if (!strcmp(argv[1], "nconn")) {
 		param.options = 0U;
 	} else {
@@ -2033,8 +2033,6 @@ static int cmd_advertise(const struct shell *sh, size_t argc, char *argv[])
 		} else if (!strcmp(arg, "name-ad")) {
 			name_ad = true;
 			name_sd = false;
-		} else if (!strcmp(arg, "one-time")) {
-			param.options |= BT_LE_ADV_OPT_ONE_TIME;
 		} else if (!strcmp(arg, "disable-37")) {
 			param.options |= BT_LE_ADV_OPT_DISABLE_CHAN_37;
 		} else if (!strcmp(arg, "disable-38")) {
@@ -2058,7 +2056,7 @@ static int cmd_advertise(const struct shell *sh, size_t argc, char *argv[])
 
 	atomic_clear(adv_opt);
 	atomic_set_bit_to(adv_opt, SHELL_ADV_OPT_CONNECTABLE,
-			  (param.options & BT_LE_ADV_OPT_CONNECTABLE) > 0);
+			  (param.options & BT_LE_ADV_OPT_CONN) > 0);
 	atomic_set_bit_to(adv_opt, SHELL_ADV_OPT_DISCOVERABLE, discoverable);
 	atomic_set_bit_to(adv_opt, SHELL_ADV_OPT_APPEARANCE, appearance);
 
@@ -2143,10 +2141,10 @@ static bool adv_param_parse(size_t argc, char *argv[],
 	memset(param, 0, sizeof(struct bt_le_adv_param));
 
 	if (!strcmp(argv[1], "conn-scan")) {
-		param->options |= BT_LE_ADV_OPT_CONNECTABLE;
+		param->options |= BT_LE_ADV_OPT_CONN;
 		param->options |= BT_LE_ADV_OPT_SCANNABLE;
 	} else if (!strcmp(argv[1], "conn-nscan")) {
-		param->options |= BT_LE_ADV_OPT_CONNECTABLE;
+		param->options |= BT_LE_ADV_OPT_CONN;
 	} else if (!strcmp(argv[1], "nconn-scan")) {
 		param->options |= BT_LE_ADV_OPT_SCANNABLE;
 	} else if (!strcmp(argv[1], "nconn-nscan")) {
@@ -2245,7 +2243,7 @@ static int cmd_adv_create(const struct shell *sh, size_t argc, char *argv[])
 
 	atomic_clear(adv_set_opt[adv_index]);
 	atomic_set_bit_to(adv_set_opt[adv_index], SHELL_ADV_OPT_CONNECTABLE,
-			  (param.options & BT_LE_ADV_OPT_CONNECTABLE) > 0);
+			  (param.options & BT_LE_ADV_OPT_CONN) > 0);
 	atomic_set_bit_to(adv_set_opt[adv_index], SHELL_ADV_OPT_EXT_ADV,
 			  (param.options & BT_LE_ADV_OPT_EXT_ADV) > 0);
 
@@ -3902,6 +3900,35 @@ static int cmd_bondable(const struct shell *sh, size_t argc, char *argv[])
 	return 0;
 }
 
+#if defined(CONFIG_BT_BONDABLE_PER_CONNECTION)
+static int cmd_conn_bondable(const struct shell *sh, size_t argc, char *argv[])
+{
+	int err = 0;
+	bool enable;
+
+	if (!default_conn) {
+		shell_error(sh, "Not connected");
+		return -ENOEXEC;
+	}
+
+	enable = shell_strtobool(argv[1], 0, &err);
+	if (err) {
+		shell_help(sh);
+		return SHELL_CMD_HELP_PRINTED;
+	}
+
+	shell_print(sh, "[%p] set conn bondable %s", default_conn, argv[1]);
+
+	err = bt_conn_set_bondable(default_conn, enable);
+	if (err) {
+		shell_error(sh, "Set conn bondable failed: err %d", err);
+		return -ENOEXEC;
+	}
+	shell_print(sh, "Set conn bondable done");
+	return 0;
+}
+#endif /* CONFIG_BT_BONDABLE_PER_CONNECTION */
+
 static void bond_info(const struct bt_bond_info *info, void *user_data)
 {
 	char addr[BT_ADDR_LE_STR_LEN];
@@ -4977,7 +5004,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(advertise, NULL,
 		      "<type: off, on, nconn> [mode: discov, non_discov] "
 		      "[filter-accept-list: fal, fal-scan, fal-conn] [identity] [no-name] "
-		      "[one-time] [name-ad] [appearance] "
+		      "[name-ad] [appearance] "
 		      "[disable-37] [disable-38] [disable-39]",
 		      cmd_advertise, 2, 8),
 #if defined(CONFIG_BT_PERIPHERAL)
@@ -5079,6 +5106,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 		      cmd_security, 1, 2),
 	SHELL_CMD_ARG(bondable, NULL, HELP_ONOFF, cmd_bondable,
 		      2, 0),
+#if defined(CONFIG_BT_BONDABLE_PER_CONNECTION)
+	SHELL_CMD_ARG(conn-bondable, NULL, HELP_ONOFF, cmd_conn_bondable, 2, 0),
+#endif /* CONFIG_BT_BONDABLE_PER_CONNECTION */
 	SHELL_CMD_ARG(bonds, NULL, HELP_NONE, cmd_bonds, 1, 0),
 	SHELL_CMD_ARG(connections, NULL, HELP_NONE, cmd_connections, 1, 0),
 	SHELL_CMD_ARG(auth, NULL,

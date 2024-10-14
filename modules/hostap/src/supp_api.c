@@ -35,7 +35,9 @@ static struct wifi_connect_req_params last_wifi_conn_params;
 
 enum requested_ops {
 	CONNECT = 0,
-	DISCONNECT
+	DISCONNECT,
+	WPS_PBC,
+	WPS_PIN,
 };
 
 enum status_thread_state {
@@ -269,7 +271,7 @@ static int wpa_supp_supported_channels(struct wpa_supplicant *wpa_s, uint8_t ban
 	}
 
 	size = ((mode->num_channels) * CHAN_NUM_LEN) + 1;
-	_chan_list = k_malloc(size);
+	_chan_list = os_malloc(size);
 	if (!_chan_list) {
 		wpa_printf(MSG_ERROR, "Mem alloc failed for channel list");
 		return -ENOMEM;
@@ -348,10 +350,6 @@ static inline int chan_to_freq(int chan)
 static inline enum wifi_frequency_bands wpas_band_to_zephyr(enum wpa_radio_work_band band)
 {
 	switch (band) {
-	case WPA_KEY_MGMT_IEEE8021X:
-	case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
-	case WPA_KEY_MGMT_IEEE8021X_SUITE_B_192:
-		return WIFI_SECURITY_TYPE_EAP_TLS;
 	case BAND_2_4_GHZ:
 		return WIFI_FREQ_BAND_2_4_GHZ;
 	case BAND_5_GHZ:
@@ -364,6 +362,10 @@ static inline enum wifi_frequency_bands wpas_band_to_zephyr(enum wpa_radio_work_
 static inline enum wifi_security_type wpas_key_mgmt_to_zephyr(int key_mgmt, int proto)
 {
 	switch (key_mgmt) {
+	case WPA_KEY_MGMT_IEEE8021X:
+	case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
+	case WPA_KEY_MGMT_IEEE8021X_SUITE_B_192:
+		return WIFI_SECURITY_TYPE_EAP_TLS;
 	case WPA_KEY_MGMT_NONE:
 		return WIFI_SECURITY_TYPE_NONE;
 	case WPA_KEY_MGMT_PSK:
@@ -500,11 +502,11 @@ static int wpas_add_and_config_network(struct wpa_supplicant *wpa_s,
 		if (chan_list) {
 			if (!wpa_cli_cmd_v("set_network %d scan_freq%s", resp.network_id,
 					   chan_list)) {
-				k_free(chan_list);
+				os_free(chan_list);
 				goto out;
 			}
 
-			k_free(chan_list);
+			os_free(chan_list);
 		}
 	}
 
@@ -602,6 +604,32 @@ static int wpas_add_and_config_network(struct wpa_supplicant *wpa_s,
 						   resp.network_id)) {
 					goto out;
 				}
+			}
+		} else if (params->security == WIFI_SECURITY_TYPE_WPA_AUTO_PERSONAL) {
+			if (!wpa_cli_cmd_v("set_network %d psk \"%s\"", resp.network_id,
+					   psk_null_terminated)) {
+				goto out;
+			}
+
+			if (params->sae_password) {
+				if (!wpa_cli_cmd_v("set_network %d sae_password \"%s\"",
+						   resp.network_id, sae_null_terminated)) {
+					goto out;
+				}
+			} else {
+				if (!wpa_cli_cmd_v("set_network %d sae_password \"%s\"",
+						   resp.network_id, psk_null_terminated)) {
+					goto out;
+				}
+			}
+
+			if (!wpa_cli_cmd_v("set sae_pwe 2")) {
+				goto out;
+			}
+
+			if (!wpa_cli_cmd_v("set_network %d key_mgmt WPA-PSK SAE",
+					   resp.network_id)) {
+				goto out;
 			}
 #ifdef CONFIG_WIFI_NM_WPA_SUPPLICANT_CRYPTO_ENTERPRISE
 		} else if (params->security == WIFI_SECURITY_TYPE_EAP_TLS) {
@@ -1141,13 +1169,44 @@ int supplicant_reg_domain(const struct device *dev,
 			  struct wifi_reg_domain *reg_domain)
 {
 	const struct wifi_mgmt_ops *const wifi_mgmt_api = get_wifi_mgmt_api(dev);
+	struct wpa_supplicant *wpa_s;
+	int ret = -1;
 
 	if (!wifi_mgmt_api || !wifi_mgmt_api->reg_domain) {
 		wpa_printf(MSG_ERROR, "Regulatory domain not supported");
 		return -ENOTSUP;
 	}
 
-	return wifi_mgmt_api->reg_domain(dev, reg_domain);
+	if (reg_domain->oper == WIFI_MGMT_GET) {
+		return wifi_mgmt_api->reg_domain(dev, reg_domain);
+	}
+
+	if (reg_domain->oper == WIFI_MGMT_SET) {
+		k_mutex_lock(&wpa_supplicant_mutex, K_FOREVER);
+
+		wpa_s = get_wpa_s_handle(dev);
+		if (!wpa_s) {
+			wpa_printf(MSG_ERROR, "Interface %s not found", dev->name);
+			goto out;
+		}
+
+		if (!wpa_cli_cmd_v("set country %s", reg_domain->country_code)) {
+			goto out;
+		}
+
+#ifdef CONFIG_WIFI_NM_HOSTAPD_AP
+		if (!hostapd_cli_cmd_v("set country_code %s", reg_domain->country_code)) {
+			goto out;
+		}
+#endif
+
+		ret = 0;
+
+out:
+		k_mutex_unlock(&wpa_supplicant_mutex);
+	}
+
+	return ret;
 }
 
 int supplicant_mode(const struct device *dev, struct wifi_mode_info *mode)
@@ -1259,6 +1318,91 @@ out:
 	return ret;
 }
 
+static int supplicant_wps_pbc(const struct device *dev)
+{
+	struct wpa_supplicant *wpa_s;
+	int ret = -1;
+
+	k_mutex_lock(&wpa_supplicant_mutex, K_FOREVER);
+
+	wpa_s = get_wpa_s_handle(dev);
+	if (!wpa_s) {
+		ret = -1;
+		wpa_printf(MSG_ERROR, "Interface %s not found", dev->name);
+		goto out;
+	}
+
+	if (!wpa_cli_cmd_v("wps_pbc")) {
+		goto out;
+	}
+
+	wpas_api_ctrl.dev = dev;
+	wpas_api_ctrl.requested_op = WPS_PBC;
+
+	ret = 0;
+
+out:
+	k_mutex_unlock(&wpa_supplicant_mutex);
+
+	return ret;
+}
+
+static int supplicant_wps_pin(const struct device *dev, struct wifi_wps_config_params *params)
+{
+	struct wpa_supplicant *wpa_s;
+	char *get_pin_cmd = "WPS_PIN get";
+	int ret = -1;
+
+	k_mutex_lock(&wpa_supplicant_mutex, K_FOREVER);
+
+	wpa_s = get_wpa_s_handle(dev);
+	if (!wpa_s) {
+		ret = -1;
+		wpa_printf(MSG_ERROR, "Interface %s not found", dev->name);
+		goto out;
+	}
+
+	if (params->oper == WIFI_WPS_PIN_GET) {
+		if (zephyr_wpa_cli_cmd_resp(get_pin_cmd, params->pin)) {
+			goto out;
+		}
+	} else if (params->oper == WIFI_WPS_PIN_SET) {
+		if (!wpa_cli_cmd_v("wps_check_pin %s", params->pin)) {
+			goto out;
+		}
+
+		if (!wpa_cli_cmd_v("wps_pin any %s", params->pin)) {
+			goto out;
+		}
+
+		wpas_api_ctrl.dev = dev;
+		wpas_api_ctrl.requested_op = WPS_PIN;
+	} else {
+		wpa_printf(MSG_ERROR, "Error wps pin operation : %d", params->oper);
+		goto out;
+	}
+
+	ret = 0;
+
+out:
+	k_mutex_unlock(&wpa_supplicant_mutex);
+
+	return ret;
+}
+
+int supplicant_wps_config(const struct device *dev, struct wifi_wps_config_params *params)
+{
+	int ret = 0;
+
+	if (params->oper == WIFI_WPS_PBC) {
+		ret = supplicant_wps_pbc(dev);
+	} else if (params->oper == WIFI_WPS_PIN_GET || params->oper == WIFI_WPS_PIN_SET) {
+		ret = supplicant_wps_pin(dev, params);
+	}
+
+	return ret;
+}
+
 #ifdef CONFIG_AP
 #ifdef CONFIG_WIFI_NM_HOSTAPD_AP
 int hapd_state(const struct device *dev, int *state)
@@ -1326,7 +1470,7 @@ int hapd_config_network(struct hostapd_iface *iface,
 			if (!hostapd_cli_cmd_v("set wpa_key_mgmt WPA-PSK")) {
 				goto out;
 			}
-			if (!hostapd_cli_cmd_v("set wpa_passphrase \"%s\"", params->psk)) {
+			if (!hostapd_cli_cmd_v("set wpa_passphrase %s", params->psk)) {
 				goto out;
 			}
 			if (!hostapd_cli_cmd_v("set wpa_pairwise CCMP")) {
@@ -1339,7 +1483,7 @@ int hapd_config_network(struct hostapd_iface *iface,
 			if (!hostapd_cli_cmd_v("set wpa_key_mgmt WPA-PSK")) {
 				goto out;
 			}
-			if (!hostapd_cli_cmd_v("set wpa_passphrase \"%s\"", params->psk)) {
+			if (!hostapd_cli_cmd_v("set wpa_passphrase %s", params->psk)) {
 				goto out;
 			}
 			if (!hostapd_cli_cmd_v("set rsn_pairwise CCMP")) {
@@ -1352,7 +1496,7 @@ int hapd_config_network(struct hostapd_iface *iface,
 			if (!hostapd_cli_cmd_v("set wpa_key_mgmt WPA-PSK-SHA256")) {
 				goto out;
 			}
-			if (!hostapd_cli_cmd_v("set wpa_passphrase \"%s\"", params->psk)) {
+			if (!hostapd_cli_cmd_v("set wpa_passphrase %s", params->psk)) {
 				goto out;
 			}
 			if (!hostapd_cli_cmd_v("set rsn_pairwise CCMP")) {
@@ -1365,7 +1509,7 @@ int hapd_config_network(struct hostapd_iface *iface,
 			if (!hostapd_cli_cmd_v("set wpa_key_mgmt SAE")) {
 				goto out;
 			}
-			if (!hostapd_cli_cmd_v("set sae_password \"%s\"",
+			if (!hostapd_cli_cmd_v("set sae_password %s",
 					       params->sae_password ? params->sae_password :
 					       params->psk)) {
 				goto out;
@@ -1376,7 +1520,32 @@ int hapd_config_network(struct hostapd_iface *iface,
 			if (!hostapd_cli_cmd_v("set sae_pwe 2")) {
 				goto out;
 			}
-			iface->bss[0]->conf->sae_pwe = 2;
+		} else if (params->security == WIFI_SECURITY_TYPE_WPA_AUTO_PERSONAL) {
+			if (!hostapd_cli_cmd_v("set wpa 2")) {
+				goto out;
+			}
+
+			if (!hostapd_cli_cmd_v("set wpa_key_mgmt WPA-PSK SAE")) {
+				goto out;
+			}
+
+			if (!hostapd_cli_cmd_v("set wpa_passphrase \"%s\"", params->psk)) {
+				goto out;
+			}
+
+			if (!hostapd_cli_cmd_v("set sae_password \"%s\"",
+					       params->sae_password ? params->sae_password
+								    : params->psk)) {
+				goto out;
+			}
+
+			if (!hostapd_cli_cmd_v("set rsn_pairwise CCMP")) {
+				goto out;
+			}
+
+			if (!hostapd_cli_cmd_v("set sae_pwe 2")) {
+				goto out;
+			}
 		} else if (params->security == WIFI_SECURITY_TYPE_DPP) {
 			if (!hostapd_cli_cmd_v("set wpa 2")) {
 				goto out;
@@ -1544,6 +1713,8 @@ int supplicant_ap_enable(const struct device *dev,
 
 	/* No need to check for existing network to join for SoftAP*/
 	wpa_s->conf->ap_scan = 2;
+	/* Set BSS parameter max_num_sta to default configured value */
+	wpa_s->conf->max_num_sta = CONFIG_WIFI_MGMT_AP_MAX_NUM_STA;
 
 	ret = wpas_add_and_config_network(wpa_s, params, true);
 	if (ret) {
@@ -1681,6 +1852,7 @@ out:
 }
 #endif /* CONFIG_AP */
 
+#ifdef CONFIG_WIFI_NM_WPA_SUPPLICANT_DPP
 static const char *dpp_params_to_args_curve(int curve)
 {
 	switch (curve) {
@@ -1970,6 +2142,7 @@ int supplicant_dpp_dispatch(const struct device *dev, struct wifi_dpp_params *pa
 	os_free(cmd);
 	return 0;
 }
+#endif /* CONFIG_WIFI_NM_WPA_SUPPLICANT_DPP */
 
 #ifdef CONFIG_WIFI_NM_HOSTAPD_AP
 int hapd_dpp_dispatch(const struct device *dev, struct wifi_dpp_params *params)

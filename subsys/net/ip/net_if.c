@@ -17,6 +17,7 @@ LOG_MODULE_REGISTER(net_if, CONFIG_NET_IF_LOG_LEVEL);
 #include <string.h>
 #include <zephyr/net/igmp.h>
 #include <zephyr/net/ipv4_autoconf.h>
+#include <zephyr/net/mld.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/net_pkt.h>
@@ -174,6 +175,7 @@ struct net_if *z_vrfy_net_if_get_by_index(int index)
 #include <zephyr/syscalls/net_if_get_by_index_mrsh.c>
 #endif
 
+#if defined(CONFIG_NET_NATIVE)
 static inline void net_context_send_cb(struct net_context *context,
 				       int status)
 {
@@ -382,6 +384,7 @@ void net_if_queue_tx(struct net_if *iface, struct net_pkt *pkt)
 			;
 	}
 }
+#endif /* CONFIG_NET_NATIVE */
 
 void net_if_stats_reset(struct net_if *iface)
 {
@@ -445,6 +448,7 @@ static inline void init_iface(struct net_if *iface)
 	net_ipv6_pe_init(iface);
 }
 
+#if defined(CONFIG_NET_NATIVE)
 enum net_verdict net_if_send_data(struct net_if *iface, struct net_pkt *pkt)
 {
 	const struct net_l2 *l2;
@@ -551,6 +555,7 @@ done:
 
 	return verdict;
 }
+#endif /* CONFIG_NET_NATIVE */
 
 int net_if_set_link_addr_locked(struct net_if *iface,
 				uint8_t *addr, uint8_t len,
@@ -2978,6 +2983,8 @@ out:
 	net_if_unlock(iface);
 }
 
+#endif /* CONFIG_NET_NATIVE_IPV6 */
+
 static uint8_t get_diff_ipv6(const struct in6_addr *src,
 			  const struct in6_addr *dst)
 {
@@ -3202,6 +3209,8 @@ struct net_if *net_if_ipv6_select_src_iface(const struct in6_addr *dst)
 
 	return iface;
 }
+
+#if defined(CONFIG_NET_NATIVE_IPV6)
 
 uint32_t net_if_ipv6_calc_reachable_time(struct net_if_ipv6 *ipv6)
 {
