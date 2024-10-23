@@ -56,6 +56,16 @@ Deprecated in this release
 
 * The :ref:`kscan_api` subsystem has been marked as deprecated.
 
+* The TinyCrypt library was marked as deprecated (:github:`79566`). The reasons
+  for this are (:github:`43712``):
+
+  * the upstream version of this library is unmaintained.
+
+  * to reduce the number of crypto libraries available in Zephyr (currently there are
+    3 different implementations: TinyCrypt, MbedTLS and PSA Crypto APIs).
+
+  The PSA Crypto API is now the de-facto standard to perform crypto operations.
+
 Architectures
 *************
 
@@ -113,6 +123,13 @@ Bluetooth
 
   * The host now disconnects from the peer upon ATT timeout.
 
+  * Added a warning to :c:func:`bt_conn_le_create` and :c:func:`bt_conn_le_create_synced` if
+    the connection pointer passed as an argument is not NULL.
+
+  * Added Kconfig option :kconfig:option:`CONFIG_BT_CONN_CHECK_NULL_BEFORE_CREATE` to enforce
+    :c:func:`bt_conn_le_create` and :c:func:`bt_conn_le_create_synced` return an error if the
+    connection pointer passed as an argument is not NULL.
+
 * HCI Drivers
 
 Boards & SoC Support
@@ -134,6 +151,7 @@ Boards & SoC Support
   * Support for Google Kukui EC board (``google_kukui``) has been dropped.
   * STM32: Deprecated MCO configuration via Kconfig in favour of setting it through devicetree.
     See ``samples/boards/stm32/mco`` sample.
+  * Removed the ``nrf54l15pdk`` board, use :ref:`nrf54l15dk_nrf54l15` instead.
 
 * Added support for the following shields:
 
@@ -201,6 +219,9 @@ Drivers and Sensors
 * GNSS
 
 * GPIO
+
+  * tle9104: Add support for the parallel output mode via setting the properties ``parallel-out12`` and
+    ``parallel-out34``.
 
 * Hardware info
 
