@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Marcin Niestroj
+ * Copyright (c) 2024
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -100,6 +100,7 @@
 		};
 	};
 
+	/*
 	spi2_default: spi2_default {
 		group1 {
 			psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
@@ -114,6 +115,16 @@
 				<NRF_PSEL(SPIM_MOSI, 1, 15)>,
 				<NRF_PSEL(SPIM_MISO, 1, 14)>;
 			low-power-enable;
+		};
+	};
+*/
+
+	i2s0_default: i2s0_default {
+		group1 {
+			psels = <NRF_PSEL(I2S_SCK_M, 1, 14)>,
+				<NRF_PSEL(I2S_LRCK_M, 1, 15)>,
+				<NRF_PSEL(I2S_SDOUT, 1, 13)>,
+				<NRF_PSEL(I2S_SDIN, 1, 7)>;
 		};
 	};
 
@@ -160,4 +171,10 @@
 			bias-pull-up;
 		};
 	};
+};
+
+i2s_rxtx: &i2s0 {
+	status = "okay";
+	pinctrl-0 = <&i2s0_default>;
+	pinctrl-names = "default";
 };

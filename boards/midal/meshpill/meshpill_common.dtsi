@@ -34,6 +34,14 @@
 			gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
 			label = "Blue LED";
 		};
+		led3: led_3 {
+			gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
+			label = "Blue LED";
+		};
+		led4: led_4 {
+			gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>;
+			label = "Blue LED";
+		};
 	};
 
 	pwmleds {
@@ -48,6 +56,8 @@
 		led0 = &led0;
 		led1 = &led1;
 		led2 = &led2;
+		led3 = &led3;
+		led4 = &led4;
 		pwm-led0 = &pwm_led0;
 		bootloader-led0 = &led0;
 		mcuboot-led0 = &led0;
@@ -112,14 +122,6 @@ arduino_serial: &uart1 {
 	status = "okay";
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-1 = <&pwm0_sleep>;
-	pinctrl-names = "default", "sleep";
-};
-
-&spi2 {
-	compatible = "nordic,nrf-spi";
-	status = "okay";
-	pinctrl-0 = <&spi2_default>;
-	pinctrl-1 = <&spi2_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 
