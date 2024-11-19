@@ -18,6 +18,8 @@ LOG_MODULE_DECLARE(meshtalk, LOG_LEVEL_DBG);
 #include <zephyr/net/tls_credentials.h>
 
 #include "common.h"
+#include "leds.h"
+
 
 static void process_udp6(void);
 
@@ -94,22 +96,30 @@ static int process_udp_rx(struct rx_data *data)
 			atomic_add(&data->udp.bytes_received, received);
 		}
 
-		ret = sendto(data->udp.sock, data->udp.recv_buffer, received, 0,
-			     &client_addr, client_addr_len);
-		if (ret < 0) {
-			NET_ERR("UDP (%s): Failed to send %d", data->proto,
-				errno);
-			ret = -errno;
-			break;
-		}
+		// ret = sendto(data->udp.sock, data->udp.recv_buffer, received, 0,
+		// 	     &client_addr, client_addr_len);
+				 
+		// if (ret < 0) {
+		// 	NET_ERR("UDP (%s): Failed to send %d", data->proto,
+		// 		errno);
+		// 	ret = -errno;
+		// 	break;
+		// }
 
-		if (++data->udp.counter % 1000 == 0U) {
-			NET_INFO("%s UDP: Sent %u packets", data->proto,
-				 data->udp.counter);
-		}
+		// if (++data->udp.counter % 1000 == 0U) {
+		// 	NET_INFO("%s UDP: Sent %u packets", data->proto,
+		// 		 data->udp.counter);
+		// }
 
-		NET_DBG("UDP (%s): Received and replied with %d bytes",
-			data->proto, received);
+		NET_DBG("UDP (%s):                                            Received %d bytes from (addr %02x%02x%02x%02x...%02x%02x   addr len %d)", data->proto, received, ((char *)&client_addr)[2], ((char *)&client_addr)[3], ((char *)&client_addr)[4], ((char *)&client_addr)[5], ((char *)&client_addr)[client_addr_len-2], ((char *)&client_addr)[client_addr_len-1], client_addr_len);	
+		NET_DBG("---------------------------------------");
+		NET_DBG("           Packet Number: %d", ((struct message*)(data->udp.recv_buffer))->counter);
+		NET_DBG("---------------------------------------");
+
+		if(received == 7) {
+			//ret = sendto(data->udp.sock, "Hello reply", 11, 0, &client_addr, client_addr_len);
+		}
+		
 	} while (true);
 
 	return ret;

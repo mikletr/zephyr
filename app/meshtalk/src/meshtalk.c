@@ -7,11 +7,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/logging/log.h>
+//#include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(meshtalk, LOG_LEVEL_DBG);
+#include "common.h"
 
-#include <zephyr/kernel.h>
+//#include <zephyr/kernel.h>
 #include <zephyr/linker/sections.h>
 #include <errno.h>
 #include <zephyr/shell/shell.h>
@@ -27,10 +27,18 @@ LOG_MODULE_REGISTER(meshtalk, LOG_LEVEL_DBG);
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/conn_mgr_monitor.h>
 
-#include "common.h"
+#include "leds.h"
+#include "send.h"
+
+#include <zephyr/zbus/zbus.h>
+
 
 
 #include <zephyr/drivers/gpio.h>
+
+
+LOG_MODULE_REGISTER(meshtalk, LOG_LEVEL_DBG);
+
 
 #define APP_BANNER "Run meshtalk"
 
@@ -40,20 +48,6 @@ LOG_MODULE_REGISTER(meshtalk, LOG_LEVEL_DBG);
 #define SLEEP_TIME_MS   1000
 
 #define INVALID_SOCK (-1)
-
-/* The devicetree node identifier for the "led0" alias. */
-#define LED0_NODE DT_ALIAS(led0)
-#define LED1_NODE DT_ALIAS(led1)
-#define LED2_NODE DT_ALIAS(led2)
-
-/*
- * A build error on this line means your board is unsupported.
- * See the sample documentation for information on how to fix this.
- */
-static const struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
-static const struct gpio_dt_spec led1 = GPIO_DT_SPEC_GET(LED1_NODE, gpios);
-static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET(LED2_NODE, gpios);
-
 
 
 static struct k_sem quit_lock;
@@ -136,6 +130,7 @@ static int start_udp_and_tcp(void)
 	LOG_INF("Starting...");
 
 	if (IS_ENABLED(CONFIG_NET_UDP)) {
+		
 		start_udp_rx();
 
 		ret = start_udp_tx();
@@ -310,32 +305,6 @@ static void init_app(void)
 {
 	LOG_INF(APP_BANNER);
 
-	int ret;
-
-	if (!gpio_is_ready_dt(&led0)) {
-		return;
-	}
-	if (!gpio_is_ready_dt(&led1)) {
-		return;
-	}
-	if (!gpio_is_ready_dt(&led2)) {
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_ACTIVE);
-	ret = gpio_pin_configure_dt(&led1, GPIO_OUTPUT_ACTIVE);
-	ret = gpio_pin_configure_dt(&led2, GPIO_OUTPUT_ACTIVE);
-	//ret = gpio_pin_configure_dt(&led3, GPIO_OUTPUT_ACTIVE);
-
-	if (ret < 0) {
-		return;
-	}
-
-	gpio_pin_set_dt(&led0, false);
-	gpio_pin_set_dt(&led1, false);
-	gpio_pin_set_dt(&led2, false);
-	//gpio_pin_set_dt(&led3, false);
-
 	k_sem_init(&quit_lock, 0, K_SEM_MAX_LIMIT);
 
 	if (IS_ENABLED(CONFIG_NET_CONNECTION_MANAGER)) {
@@ -364,14 +333,17 @@ static void start_client(void *p1, void *p2, void *p3)
 
 	while (true) {
 		/* Wait for the connection. */
-		k_sem_take(&run_app, K_FOREVER);
+		//k_sem_take(&run_app, K_FOREVER);
 
 		if (IS_ENABLED(CONFIG_NET_IPV6_PE)) {
 			/* Make sure that we have a temporary address */
 			k_sleep(K_SECONDS(1));
 		}
 
-		gpio_pin_set_dt(&led1, true);
+		//set_red();
+
+		set_leds_off();
+		set_green();
 
 		do {
 			if (need_restart) {
@@ -442,8 +414,12 @@ SHELL_CMD_REGISTER(sample, &sample_commands,
 
 int main(void)
 {
-	init_app();
+	init_leds();
 
+	init_app();
+ 
+ 	start_periodic_message_timer();
+ 
 	if (!IS_ENABLED(CONFIG_NET_CONNECTION_MANAGER)) {
 		/* If the config library has not been configured to start the
 		 * app only after we have a connection, then we can start
@@ -455,15 +431,15 @@ int main(void)
 	/* Wait for the connection. */
 	k_sem_take(&run_app, K_FOREVER);
 
-	gpio_pin_set_dt(&led0, true);
+	set_red();
 
-	start_udp_and_tcp();
+	//start_udp_and_tcp();
 
 	start_client(NULL, NULL, NULL);
 
 	k_sem_take(&quit_lock, K_FOREVER);
 
-	gpio_pin_set_dt(&led0, false);
+	set_leds_off();
 
 	if (connected) {
 		stop_udp_and_tcp();

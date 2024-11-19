@@ -9,6 +9,8 @@ project(meshtalk)
 target_sources(                     app PRIVATE src/meshtalk.c)
 target_sources(                     app PRIVATE src/udprx.c)
 target_sources(                     app PRIVATE src/udptx.c)
+target_sources(                     app PRIVATE src/leds.c)
+target_sources(                     app PRIVATE src/send.c)
 
 include(${ZEPHYR_BASE}/samples/net/common/common.cmake)
 

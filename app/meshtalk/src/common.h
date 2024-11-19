@@ -1,10 +1,13 @@
-/*
- * Copyright (c) 2017-2019 Intel Corporation.
- * Copyright (c) 2018 Nordic Semiconductor ASA.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 
+#ifndef _COMMON_H_
+#define _COMMON_H_
+
+
+#include <zephyr/kernel.h>
+
+#include <zephyr/drivers/gpio.h>
+
+#include <zephyr/logging/log.h>
 
 #define MY_PORT 4242
 
@@ -28,6 +31,13 @@
 
 #define APP_BMEM
 #define APP_DMEM
+
+struct message {
+	uint32_t lenght;
+	uint32_t counter;
+
+    const char *data;
+};
 
 struct rx_data {
 	const char *proto;
@@ -83,3 +93,7 @@ void start_udp_rx(void);
 void stop_udp_rx(void);
 
 void quit(void);
+
+int sendData(const char *data, int len);
+
+#endif //_COMMON_H_

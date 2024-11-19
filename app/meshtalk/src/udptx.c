@@ -7,10 +7,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/logging/log.h>
-
-LOG_MODULE_DECLARE(meshtalk, LOG_LEVEL_DBG);
-
 #include <zephyr/kernel.h>
 #include <errno.h>
 #include <stdio.h>
@@ -20,20 +16,27 @@ LOG_MODULE_DECLARE(meshtalk, LOG_LEVEL_DBG);
 #include <zephyr/random/random.h>
 
 #include "common.h"
+#include "leds.h"
 
 #define RECV_BUF_SIZE 1280
 #define UDP_SLEEP K_MSEC(150)
+
 #define UDP_WAIT K_SECONDS(10)
+//#define UDP_WAIT K_MSEC(150)
+
+LOG_MODULE_DECLARE(meshtalk, LOG_LEVEL_DBG);
+
 
 static APP_BMEM char recv_buf[RECV_BUF_SIZE];
 
 static K_THREAD_STACK_DEFINE(udp_tx_thread_stack, UDP_STACK_SIZE);
+
 static struct k_thread udp_tx_thread;
 
 /* Kernel objects should not be placed in a memory area accessible from user
  * threads.
  */
-static struct udp_control udp4_ctrl, udp6_ctrl;
+static struct udp_control udp6_ctrl;
 static struct k_poll_signal udp_kill;
 
 static int send_udp_data(struct tx_data *data);
@@ -50,11 +53,9 @@ static void process_udp_tx(void *p1, void *p2, void *p3)
 		K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL,
 					 K_POLL_MODE_NOTIFY_ONLY,
 					 &udp_kill),
-#if defined(CONFIG_NET_IPV6)
 		K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL,
 					 K_POLL_MODE_NOTIFY_ONLY,
 					 &udp6_ctrl.tx_signal),
-#endif
 	};
 
 	while (true) {
@@ -65,16 +66,20 @@ static void process_udp_tx(void *p1, void *p2, void *p3)
 			int result;
 
 			k_poll_signal_check(events[i].signal, &signaled, &result);
+
 			if (signaled == 0) {
 				continue;
 			}
 
 			k_poll_signal_reset(events[i].signal);
+
 			events[i].state = K_POLL_STATE_NOT_READY;
 
 			if (events[i].signal == &udp_kill) {
 				return;
-			} else if (events[i].signal == &udp6_ctrl.tx_signal) {
+			} 
+			else if (events[i].signal == &udp6_ctrl.tx_signal) 
+			{
 				send_udp_data(&tx_conf.ipv6);
 			}
 		}
@@ -102,10 +107,8 @@ void init_udp(void)
 	 * objects here.
 	 */
 
-	if (IS_ENABLED(CONFIG_NET_IPV6)) {
-		udp_control_init(&udp6_ctrl);
-		tx_conf.ipv6.udp.ctrl = &udp6_ctrl;
-	}
+	udp_control_init(&udp6_ctrl);
+	tx_conf.ipv6.udp.ctrl = &udp6_ctrl;
 
 	k_poll_signal_init(&udp_kill);
 
@@ -115,23 +118,24 @@ void init_udp(void)
 				      &udp_tx_thread_stack,
 				      &udp_kill);
 
-		if (IS_ENABLED(CONFIG_NET_IPV4)) {
-			udp_control_access_grant(&udp4_ctrl);
-		}
-
 		if (IS_ENABLED(CONFIG_NET_IPV6)) {
 			udp_control_access_grant(&udp6_ctrl);
 		}
 	}
 }
 
+int sendData(const char *data, int len)
+{
+	return send(tx_conf.ipv6.udp.sock, data, len, 0);
+}
+
 static int send_udp_data(struct tx_data *data)
 {
-	int ret;
+	int ret = 0;
 
-	data->udp.expecting = 5;
+	data->udp.expecting = 7;
 
-	ret = send(data->udp.sock, "Hello", data->udp.expecting, 0);
+	//ret = sendData("Hello 7", data->udp.expecting);
 
 	if (PRINT_PROGRESS) {
 		LOG_DBG("%s UDP: Sent %d bytes", data->proto, data->udp.expecting);
@@ -142,24 +146,18 @@ static int send_udp_data(struct tx_data *data)
 	return ret < 0 ? -EIO : 0;
 }
 
-static int compare_udp_data(struct tx_data *data, const char *buf, uint32_t received)
-{
-	if (received != data->udp.expecting) {
-		LOG_ERR("Invalid amount of data received: UDP %s", data->proto);
-	}
-
-	return 0;
-}
-
 static void wait_reply(struct k_timer *timer)
 {
 	/* This means that we did not receive response in time. */
 	struct udp_control *ctrl = CONTAINER_OF(timer, struct udp_control, rx_timer);
-	struct tx_data *data = &tx_conf.ipv6;
+	// struct tx_data *data = &tx_conf.ipv6;
 
-	LOG_ERR("UDP %s: Data packet not received", data->proto);
+	// LOG_DBG("UDP %s: Data packet not received", data->proto);
+	LOG_DBG("UDP: wait_reply -> start new send");
 
 	/* Send a new packet at this point */
+
+	//send_udp_data(&tx_conf.ipv6);
 	k_poll_signal_raise(&ctrl->tx_signal, 0);
 }
 
@@ -194,6 +192,7 @@ static int start_udp_proto(struct tx_data *data, sa_family_t family,
 
 	/* Call connect so we can use send and recv. */
 	ret = connect(data->udp.sock, addr, addrlen);
+
 	if (ret < 0) {
 		LOG_ERR("Cannot connect to UDP remote (%s): %d", data->proto,
 			errno);
@@ -202,17 +201,20 @@ static int start_udp_proto(struct tx_data *data, sa_family_t family,
 
 	return ret;
 }
-
-static int process_udp_proto(struct tx_data *data)
+int process_udp()
 {
+	struct tx_data *data = &tx_conf.ipv6;
+
 	int ret, received;
 
-	received = recv(data->udp.sock, recv_buf, sizeof(recv_buf),
-			MSG_DONTWAIT);
+	ret = 0;
+
+	received = recv(data->udp.sock, recv_buf, sizeof(recv_buf),	MSG_DONTWAIT);
 
 	if (received == 0) {
 		return -EIO;
 	}
+	
 	if (received < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			ret = 0;
@@ -222,23 +224,13 @@ static int process_udp_proto(struct tx_data *data)
 		return ret;
 	}
 
-	ret = compare_udp_data(data, recv_buf, received);
-
-	if (ret != 0) {
-		LOG_WRN("%s UDP: Received and compared %d bytes, data "
-			"mismatch", data->proto, received);
-		return 0;
-	}
-
 	if (PRINT_PROGRESS) {
 		/* Correct response received */
-		LOG_DBG("%s UDP: Received and compared %d bytes, all ok",
-			data->proto, received);
+		LOG_DBG("%s UDP: Received %d bytes", data->proto, received);
 	}
 
 	if (++data->udp.counter % 1000 == 0U) {
-		LOG_INF("%s UDP: Exchanged %u packets", data->proto,
-			data->udp.counter);
+		LOG_INF("%s UDP: Exchanged %u packets", data->proto, data->udp.counter);
 	}
 
 	if (data->udp.counter % 10 == 0U) {
@@ -268,6 +260,7 @@ int start_udp_tx(void)
 				      (struct sockaddr *)&addr6,
 				      sizeof(addr6));
 		if (ret < 0) {
+			LOG_ERR("Ipv6 UDP: start_udp_proto failed");
 			return ret;
 		}
 	}
@@ -282,36 +275,18 @@ int start_udp_tx(void)
 
 	k_thread_name_set(&udp_tx_thread, "udp_tx");
 
-	if (IS_ENABLED(CONFIG_NET_IPV6)) {
-		k_poll_signal_raise(&tx_conf.ipv6.udp.ctrl->tx_signal, 0);
-	}
-
-	return ret;
-}
-
-int process_udp(void)
-{
-	int ret = 0;
-
-	if (IS_ENABLED(CONFIG_NET_IPV6)) {
-		ret = process_udp_proto(&tx_conf.ipv6);
-		if (ret < 0) {
-			return ret;
-		}
-	}
+	k_poll_signal_raise(&tx_conf.ipv6.udp.ctrl->tx_signal, 0);
 
 	return ret;
 }
 
 void stop_udp_tx(void)
 {
-	if (IS_ENABLED(CONFIG_NET_IPV6)) {
-		k_timer_stop(&udp6_ctrl.tx_timer);
-		k_timer_stop(&udp6_ctrl.rx_timer);
+	k_timer_stop(&udp6_ctrl.tx_timer);
+	k_timer_stop(&udp6_ctrl.rx_timer);
 
-		if (tx_conf.ipv6.udp.sock >= 0) {
-			(void)close(tx_conf.ipv6.udp.sock);
-		}
+	if (tx_conf.ipv6.udp.sock >= 0) {
+		(void)close(tx_conf.ipv6.udp.sock);
 	}
 
 	k_poll_signal_raise(&udp_kill, 0);
